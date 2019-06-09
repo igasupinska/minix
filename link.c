@@ -7,13 +7,12 @@
 #include "super.h"
 #include <minix/vfsif.h>
 #include <sys/param.h>
-#include <string.h>
 
 #define SAME 1000
 
-#define A_MODE "A.mode"
-#define B_MODE "B.mode"
-#define C_MODE "C.mode"
+static char *A_MODE = "A.mode"; // stawiaja null byte na koncu
+static char *B_MODE = "B.mode";
+static char *C_MODE = "C.mode";
 
 static int freesp_inode(struct inode *rip, off_t st, off_t end);
 static int remove_dir(struct inode *rldirp, struct inode *rip, char
@@ -25,10 +24,9 @@ static void zerozone_half(struct inode *rip, off_t pos, int half, int
 	zone_size);
 static void zerozone_range(struct inode *rip, off_t pos, off_t len);
 
-static int find_mode_file(struct inode *dir, char *file_mode_type);
+static int find_mode_file(struct inode *dir, char *mode_file_type);
 static int not_mode_file(char *string);
 static int perform_special_unlink(char *mode_file_type);
-
 
 /* Args to zerozone_half() */
 #define FIRST_HALF	0
@@ -129,7 +127,8 @@ int fs_unlink()
   int r;
   char string[MFS_NAME_MAX];
   phys_bytes len;
-  char *mode_file_type;
+  char file_mode_type[strlen(A_MODE) + 1];
+
   
   /* Copy the last component */
   len = min(fs_m_in.m_vfs_fs_unlink.path_len, sizeof(string));
@@ -167,10 +166,11 @@ int fs_unlink()
 
 	  /* Actually try to unlink the file; fails if parent is mode 0 etc. */
 	  if (r == OK) {
-      if (find_mode_file(rldirp, mode_file_type) == OK
+      if (find_mode_file(rldirp, file_mode_type) == OK
         && (rip->i_mode & I_TYPE) == I_REGULAR
         && not_mode_file(string) == OK) {
-        r = perform_special_unlink(mode_file_type);
+        printf("Unlink: %s\r\n", file_mode_type);
+        r = perform_special_unlink(file_mode_type);
       } else {
         r = unlink_file(rldirp, rip, string);
       }
@@ -723,31 +723,38 @@ off_t len;
 /*===========================================================================*
  *        find_mode_file             *
  *===========================================================================*/
-static int find_mode_file(dir, file_mode_type)
+static int find_mode_file(dir, mode_file_type)
 struct inode *dir;
-char *file_mode_type;
+char *mode_file_type;
 {
   struct inode *mode_file;
 
   /* Mode A */
   mode_file = advance(dir, A_MODE, IGN_PERM);
   if ((mode_file != NULL) && (mode_file->i_mode & I_TYPE) == I_REGULAR) {
+    strcpy(mode_file_type, A_MODE);
+    printf("Find mode file: %s\n", mode_file_type);
     put_inode(mode_file);
     return OK;
   }
   /* Mode B*/
   mode_file = advance(dir, B_MODE, IGN_PERM);
   if (mode_file != NULL && (mode_file->i_mode & I_TYPE) == I_REGULAR) {
+    strcpy(mode_file_type, B_MODE);
+    printf("Find mode file: %s\n", mode_file_type);
     put_inode(mode_file);
     return OK;
   }
   /* Mode C */
   mode_file = advance(dir, C_MODE, IGN_PERM);
   if (mode_file != NULL && (mode_file->i_mode & I_TYPE) == I_REGULAR) {
+    strcpy(mode_file_type, C_MODE);
+    printf("Find mode file: %s\n", mode_file_type);
     put_inode(mode_file);
     return OK;
   }
 
+  printf("Find mode file: no special file\r\n");
   return -1;
 }
 
@@ -758,9 +765,9 @@ char *file_mode_type;
 static int not_mode_file(string)
 char *string;
 {
-  if (strncmp(string, A_MODE, strlen(A_MODE)) == 0 ||
-      strncmp(string, B_MODE, strlen(B_MODE)) == 0 ||
-      strncmp(string, C_MODE, strlen(C_MODE)) == 0) {
+  if (strcmp(string, A_MODE) == 0 ||
+      strcmp(string, B_MODE) == 0 ||
+      strcmp(string, C_MODE) == 0) {
     return -1;
   }
 
@@ -774,13 +781,16 @@ char *string;
 static int perform_special_unlink(mode_file_type)
 char *mode_file_type;
 {
-  if (strncmp(mode_file_type, A_MODE, strlen(A_MODE)) == 0) {
+
+  printf("Perform special unlink: %s\n", mode_file_type);
+
+  if (strcmp(mode_file_type, A_MODE) == 0) {
     printf("A.mode detected\r\n");
     return EPERM;
-  } else if (strncmp(mode_file_type, B_MODE, strlen(B_MODE)) == 0) {
+  } else if (strcmp(mode_file_type, B_MODE) == 0) {
     printf("B.mode detected\r\n");
     return EPERM;
-  } else if (strncmp(mode_file_type, C_MODE, strlen(C_MODE)) == 0) {
+  } else if (strcmp(mode_file_type, C_MODE) == 0) {
     printf("C.mode detected\r\n");
     return EPERM;
   } else {
