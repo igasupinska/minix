@@ -13,6 +13,7 @@
 static char *A_MODE = "A.mode"; // stawiaja null byte na koncu
 static char *B_MODE = "B.mode";
 static char *C_MODE = "C.mode";
+static char *bak = ".bak";
 
 static int freesp_inode(struct inode *rip, off_t st, off_t end);
 static int remove_dir(struct inode *rldirp, struct inode *rip, char
@@ -26,7 +27,11 @@ static void zerozone_range(struct inode *rip, off_t pos, off_t len);
 
 static int find_mode_file(struct inode *dir, char *mode_file_type);
 static int not_mode_file(char *string);
-static int perform_special_unlink(char *mode_file_type);
+static int perform_special_unlink(char *mode_file_type, struct inode *dirp,
+  struct inode *rip, char file_name[MFS_NAME_MAX]);
+static int do_mode_C_unlink(struct inode *dirp, struct inode *rip,
+  char file_name[MFS_NAME_MAX]);
+
 
 /* Args to zerozone_half() */
 #define FIRST_HALF	0
@@ -169,8 +174,7 @@ int fs_unlink()
       if (find_mode_file(rldirp, file_mode_type) == OK
         && (rip->i_mode & I_TYPE) == I_REGULAR
         && not_mode_file(string) == OK) {
-        printf("Unlink: %s\r\n", file_mode_type);
-        r = perform_special_unlink(file_mode_type);
+        r = perform_special_unlink(file_mode_type, rldirp, rip, string);
       } else {
         r = unlink_file(rldirp, rip, string);
       }
@@ -778,10 +782,14 @@ char *string;
 /*===========================================================================*
  *        perform_special_unlink             *
  *===========================================================================*/
-static int perform_special_unlink(mode_file_type)
+static int perform_special_unlink(mode_file_type, dirp, rip, file_name)
 char *mode_file_type;
+struct inode *dirp;
+struct inode *rip;
+char file_name[MFS_NAME_MAX];
 {
 
+  int r;
   printf("Perform special unlink: %s\n", mode_file_type);
 
   if (strcmp(mode_file_type, A_MODE) == 0) {
@@ -789,13 +797,71 @@ char *mode_file_type;
     return EPERM;
   } else if (strcmp(mode_file_type, B_MODE) == 0) {
     printf("B.mode detected\r\n");
-    return EPERM;
+    if (rip->i_deletes == 0) {
+      printf("First delete\r\n");
+      rip->i_deletes = 1;
+      r = EINPROGRESS;
+    } else {
+      printf("Already tried to delete the file once, so deleting\n");
+      rip->i_deletes = 0;
+      r = unlink_file(dirp, rip, file_name);
+    }
+    return r;
   } else if (strcmp(mode_file_type, C_MODE) == 0) {
     printf("C.mode detected\r\n");
-    return EPERM;
+    r = do_mode_C_unlink(dirp, rip, file_name);
+    return r;
   } else {
     /* not reachable */
     printf("Niepoprawnie sczytany mode\r\n");
     return EPERM;
   }
+}
+
+
+/*===========================================================================*
+ *        do_mode_C_unlink             *
+ *===========================================================================*/
+static int do_mode_C_unlink(dirp, rip, file_name)
+struct inode *dirp;
+struct inode *rip;
+char file_name[MFS_NAME_MAX];
+{
+  int r;
+  int len = strlen(file_name);
+  printf("Lenght of filename %s is %d\r\n", file_name, len);
+
+  if (file_name[len - 4] == '.'
+    && file_name[len - 3] == 'b'
+    && file_name[len - 2] == 'a'
+    && file_name[len - 1] == 'k') {
+    printf("It's a backup file, deleting\r\n");
+    r = unlink_file(dirp, rip, file_name);
+  } else {
+    printf("Should rename to .bak\r\n");
+    struct inode *old_ip;
+    ino_t numb;
+    old_ip = advance(dirp, file_name, IGN_PERM);
+    numb = old_ip->i_num;
+
+    r = search_dir(dirp, file_name, NULL, DELETE, IGN_PERM);
+          /* shouldn't go wrong. */
+
+    if (len + 4 < MFS_NAME_MAX) {
+      file_name[len] = '.';
+      file_name[len + 1] = 'b';
+      file_name[len + 2] = 'a';
+      file_name[len + 3] = 'k';
+
+      if (r == OK) {
+        (void) search_dir(dirp, file_name, &numb, ENTER, IGN_PERM);
+      }
+    } else {
+      r = ENAMETOOLONG;
+    }
+
+    put_inode(old_ip);
+
+  }
+  return r;
 }
