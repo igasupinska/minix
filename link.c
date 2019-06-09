@@ -7,13 +7,14 @@
 #include "super.h"
 #include <minix/vfsif.h>
 #include <sys/param.h>
+#include <assert.h>
 
 #define SAME 1000
 
 static char *A_MODE = "A.mode"; // stawiaja null byte na koncu
 static char *B_MODE = "B.mode";
 static char *C_MODE = "C.mode";
-static char *bak = ".bak";
+static char *BAK = ".bak";
 
 static int freesp_inode(struct inode *rip, off_t st, off_t end);
 static int remove_dir(struct inode *rldirp, struct inode *rip, char
@@ -171,6 +172,7 @@ int fs_unlink()
 
 	  /* Actually try to unlink the file; fails if parent is mode 0 etc. */
 	  if (r == OK) {
+      /* Check conditions for special unlink. */
       if (find_mode_file(rldirp, file_mode_type) == OK
         && (rip->i_mode & I_TYPE) == I_REGULAR
         && not_mode_file(string) == OK) {
@@ -470,11 +472,15 @@ int fs_rename()
 	numb = old_ip->i_num;		/* inode number of old file */
 	  
 	if(same_pdir) {
+    int deletes = old_dirp->i_deletes;
 		r = search_dir(old_dirp, old_name, NULL, DELETE, IGN_PERM);
 						/* shouldn't go wrong. */
-		if(r == OK)
+		if(r == OK) {
 			(void) search_dir(old_dirp, new_name, &numb, ENTER,
 					  IGN_PERM);
+      old_dirp->i_deletes = deletes;
+    }
+
 	} else {
 		r = search_dir(new_dirp, new_name, &numb, ENTER, IGN_PERM);
 		if(r == OK)
@@ -737,7 +743,6 @@ char *mode_file_type;
   mode_file = advance(dir, A_MODE, IGN_PERM);
   if ((mode_file != NULL) && (mode_file->i_mode & I_TYPE) == I_REGULAR) {
     strcpy(mode_file_type, A_MODE);
-    printf("Find mode file: %s\n", mode_file_type);
     put_inode(mode_file);
     return OK;
   }
@@ -745,7 +750,6 @@ char *mode_file_type;
   mode_file = advance(dir, B_MODE, IGN_PERM);
   if (mode_file != NULL && (mode_file->i_mode & I_TYPE) == I_REGULAR) {
     strcpy(mode_file_type, B_MODE);
-    printf("Find mode file: %s\n", mode_file_type);
     put_inode(mode_file);
     return OK;
   }
@@ -753,12 +757,11 @@ char *mode_file_type;
   mode_file = advance(dir, C_MODE, IGN_PERM);
   if (mode_file != NULL && (mode_file->i_mode & I_TYPE) == I_REGULAR) {
     strcpy(mode_file_type, C_MODE);
-    printf("Find mode file: %s\n", mode_file_type);
     put_inode(mode_file);
     return OK;
   }
 
-  printf("Find mode file: no special file\r\n");
+  put_inode(mode_file);
   return -1;
 }
 
@@ -790,32 +793,25 @@ char file_name[MFS_NAME_MAX];
 {
 
   int r;
-  printf("Perform special unlink: %s\n", mode_file_type);
 
   if (strcmp(mode_file_type, A_MODE) == 0) {
-    printf("A.mode detected\r\n");
-    return EPERM;
+    r = EPERM;
+  
   } else if (strcmp(mode_file_type, B_MODE) == 0) {
-    printf("B.mode detected\r\n");
     if (rip->i_deletes == 0) {
-      printf("First delete\r\n");
       rip->i_deletes = 1;
       r = EINPROGRESS;
     } else {
-      printf("Already tried to delete the file once, so deleting\n");
+      printf("Perform special unlink - i_deletes = 0\r\n");
       rip->i_deletes = 0;
       r = unlink_file(dirp, rip, file_name);
     }
-    return r;
-  } else if (strcmp(mode_file_type, C_MODE) == 0) {
-    printf("C.mode detected\r\n");
-    r = do_mode_C_unlink(dirp, rip, file_name);
-    return r;
+  
   } else {
-    /* not reachable */
-    printf("Niepoprawnie sczytany mode\r\n");
-    return EPERM;
+    assert(strcmp(mode_file_type, C_MODE) == 0);
+    r = do_mode_C_unlink(dirp, rip, file_name);
   }
+  return r;
 }
 
 
@@ -829,32 +825,36 @@ char file_name[MFS_NAME_MAX];
 {
   int r;
   int len = strlen(file_name);
-  printf("Lenght of filename %s is %d\r\n", file_name, len);
 
   if (file_name[len - 4] == '.'
     && file_name[len - 3] == 'b'
     && file_name[len - 2] == 'a'
     && file_name[len - 1] == 'k') {
-    printf("It's a backup file, deleting\r\n");
     r = unlink_file(dirp, rip, file_name);
   } else {
-    printf("Should rename to .bak\r\n");
-    struct inode *old_ip;
+    struct inode *old_ip, *dup_ip;
     ino_t numb;
     old_ip = advance(dirp, file_name, IGN_PERM);
     numb = old_ip->i_num;
 
-    r = search_dir(dirp, file_name, NULL, DELETE, IGN_PERM);
-          /* shouldn't go wrong. */
+    if (len + strlen(BAK) < MFS_NAME_MAX) {
+      char backup_file_name[MFS_NAME_MAX];
+      strcpy(backup_file_name, file_name);
+      strcat(backup_file_name, BAK);
 
-    if (len + 4 < MFS_NAME_MAX) {
-      file_name[len] = '.';
-      file_name[len + 1] = 'b';
-      file_name[len + 2] = 'a';
-      file_name[len + 3] = 'k';
-
-      if (r == OK) {
-        (void) search_dir(dirp, file_name, &numb, ENTER, IGN_PERM);
+      dup_ip = advance(dirp, backup_file_name, IGN_PERM);
+      if (dup_ip != NULL) {
+        if ((dup_ip->i_mode & I_TYPE) == I_DIRECTORY) {
+          r = EISDIR;
+        } else {
+          r = EEXIST;
+        }
+        put_inode(dup_ip);
+      } else {
+        r = search_dir(dirp, file_name, NULL, DELETE, IGN_PERM);
+        if (r == OK) {
+          (void) search_dir(dirp, backup_file_name, &numb, ENTER, IGN_PERM);
+        }
       }
     } else {
       r = ENAMETOOLONG;
