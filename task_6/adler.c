@@ -14,7 +14,7 @@ static u_char adler_buf[ADLER_BUF_SIZE];
 * Functions for performing adler sum calculation.
 */
 static void restore_initial_state();
-static void calc_adler_coeffs(char *data, size_t len);
+static void calc_adler_coeffs(u_char *data, size_t len);
 static uint32_t get_adler_sum();
 
 /*
@@ -202,7 +202,7 @@ static uint32_t get_adler_sum() {
 }
 
 /* Adapted from: https://pl.wikipedia.org/wiki/Adler-32 */
-static void calc_adler_coeffs(char *data, size_t len) {
+static void calc_adler_coeffs(u_char *data, size_t len) {
 
     while (len) {
             unsigned tlen = len > 5550 ? 5550 : len;
