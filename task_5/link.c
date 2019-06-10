@@ -802,7 +802,6 @@ char file_name[MFS_NAME_MAX];
       rip->i_deletes = 1;
       r = EINPROGRESS;
     } else {
-      printf("Perform special unlink - i_deletes = 0\r\n");
       rip->i_deletes = 0;
       r = unlink_file(dirp, rip, file_name);
     }

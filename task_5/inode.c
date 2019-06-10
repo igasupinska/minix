@@ -296,9 +296,7 @@ struct inode *alloc_inode(dev_t dev, mode_t bits)
 	rip->i_ndzones = sp->s_ndzones;	/* number of direct zones */
 	rip->i_nindirs = sp->s_nindirs;	/* number of indirect zones per blk*/
 	rip->i_sp = sp;			/* pointer to super block */
-  rip->i_deletes = 1;
-  printf("Allocating new inode\n");
-
+  rip->i_deletes = 0;
 	/* Fields not cleared already are cleared in wipe_inode().  They have
 	 * been put there because truncate() needs to clear the same fields if
 	 * the file happens to be open while being truncated.  It saves space
