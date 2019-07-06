@@ -11,7 +11,7 @@ The server's action depends on one of three activated modes:
 
 In order to activate one of the above modes, a user needs to create a new file ```A.mode```, ```B.mode``` or ```C.mode```, depending on the chosen mode. The mode is active only for files in the directory.
 
-To deactivate mode, one simply needs to remove ```{A, B, C}.mode ``` file. The removal of ```{A, B, C}.mode ``` works as in unmodified server.
+To deactivate mode, one simply needs to remove ```{A, B, C}.mode``` file. The removal of ```{A, B, C}.mode``` works as in unmodified server.
 
 ### task_6
 #### Devices
