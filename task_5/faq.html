@@ -1,0 +1,444 @@
+<!DOCTYPE html>
+<html lang='pl'>
+  <head>
+    <title>Systemy operacyjne, zadanie 5: pytania i odpowiedzi</title>
+    <meta content='text/html; charset=UTF-8' http-equiv='content-type'>
+    <link href='https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap.min.css' rel='stylesheet'>
+    <style>
+      .question { border-top-style: solid; }
+    </style>
+  </head>
+  <body>
+    <div class='container'>
+      <h2>Zadanie 5: Pytania i odpowiedzi</h2>
+      <p><b>Aktualizacja:</b> 07.06.2019 20:55</p>
+
+
+      <div class='question'>
+        <h4>Pytanie:</h4>
+        <p>
+          Jak powinno wyglądać usuwanie katalogów zawierających pliki
+          <code>{A, B, C}.mode</code>? Np. co powinno się wydarzyć w poniższej
+          sytuacji?
+        </p>
+<pre>
+# mkdir cat
+# cd cat
+# touch A.a
+# touch A.mode
+# touch b.txt
+# cd ..
+# rm -r cat
+</pre>
+        <p>
+          Czy katalog <code>cat</code> powinien zostać usunięty wraz z całą
+          zawartością? Bo przy domyślnym zachowaniu <code>rm</code>, które
+          rekurencyjnie usuwa katalogi i pliki, najpierw zostanie podjęta próba
+          usunięcia pliku <code>cat/A.a</code>, która zakończy się
+          niepowodzeniem. Następnie zostanie usunięty plik
+          <code>cat/A.mode</code>, a potem <code>cat/b.txt</code>. W efekcie
+          zostanie samo <code>cat/A.a</code>, czyli katalog <code>cat</code> nie
+          będzie usunięty.
+        <p>
+        <h4>Odpowiedź:</h4>
+        <p>
+          Z treści zadania nie do końca wynika, czy wymaganie aby usuwanie
+          katalogów <q>działało jak w niezmodyfkowanym serwerze</q> należy
+          intepretować jako niezmienienie standardowej metody działania
+          (czyli najpierw rekurencyjne usuwanie zawartości, które może się nie
+          udać, jak w Pana przykładzie), czy zachowanie tego samego efektu
+          końcowego (katalog znika). Zatem akceptowane będą oba podejścia. 
+        </p>
+      </div>
+
+
+      <div class='question'>
+        <h4>Pytanie:</h4>
+        <p>
+          Mamy katalog, w którym znajdują się: plik zwykły <code>C.mode</code>,
+          zwykły <code>test</code> oraz katalog <code>test.bak</code>.
+          Wywołujemy <code>rm ./test</code>. Czy poprawnym jest wtedy zwrócenie
+          błędu <code>EISDIR</code>?
+        </p>
+        <h4>Odpowiedź:</h4>
+        <p>
+          W takim przypadku <code>rm</code> rzeczywiście nie powinno się
+          powieść, a zaproponowany błąd <code>EISDIR</code> wskazuje na
+          przyczynę tego niepowodzenia.
+        </p>
+      </div>
+
+
+      <div class='question'>
+        <h4>Pytanie:</h4>
+        <p>
+          Czy jeśli mamy zawartość folderu:
+        </p>
+<pre>
+C.mode test test.bak
+</pre>
+        <p>
+          A następnie wywołamy <code>rm test</code>, to czy zwrócenie błedu
+          <code>EEXIST</code> (bo plik <code>test.bak</code> już istnieje i nie
+          chcemy go przez przypadek nadpisać) będzie poprawnym rozwiązaniem?
+        </p>
+        <h4>Odpowiedź:</h4>
+        <p>
+          Zmodyfikowany serwer powinien inaczej realizować tylko operację
+          usuwania pliku. Jej powodzenie w trybie C zależy od tego, czy można
+          zmienieć nazwę pliku (dodając do niej sufiks <code>.bak</code>).
+          Zgodnie z odpowiedzią zamieszczoną tutaj poniżej, jednym z
+          dopuszczalnych rozwiązań jest uznanie, że zmiana nazwy nie jest
+          możliwa (bo plik o docelowej nazwie już istnieje) i zwrócenie błędu
+          informującego o przyczynie niepowodzenia (<code>EEXIST</code> wydaje
+          się tu pasować).
+        </p>
+      </div>
+
+
+      <div class='question'>
+        <h4>Pytanie:</h4>
+        <p>
+          Jakie jest oczekiwane zachowanie przy usuwaniu pliku <code>.bak</code>
+          (4 znaki) w trybie C?
+        </p>
+        <h4>Odpowiedź:</h4>
+        <p>
+          Za poprawne zachowanie uznam zarówno usuwanie traktujące plik o nazwie
+          <code>.bak</code> jak plik będący już kopią zapasową oraz usuwanie
+          traktujące ten plik jak zwykły plik, którego kopia zapasowa
+          <code>.bak.bak</code> dopiero powstanie.
+        </p>
+      </div>
+
+
+      <div class='question'>
+        <h4>Pytanie:</h4>
+        <p>
+          Czy scenariusz dla trybu C
+        </p>
+<pre>
+# touch x y C.mode
+# mv x y
+# ls
+C.mode y y.bak
+</pre>
+        <p>
+          jest poprawny? Jak nie, to jaki jest oczekiwany wynik?
+        </p>
+        <h4>Odpowiedź:</h4>
+        <p>
+          Jest poprawny. Za poprawny uznam także rezultat
+        </p>
+<pre>
+# ls
+C.mode y
+</pre>
+        <p>
+          z argumentacją, że <code>mv</code> nie wykonuje standardowej operacji
+          usuwania pierwotnego pliku <code>y</code> podczas zastępowania go.
+        </p>
+      </div>
+
+
+      <div class='question'>
+        <h4>Pytanie:</h4>
+        <p>
+          Czy następujące zachowanie systemu jest poprawne / akceptowalne?
+        </p>
+<pre>
+# ls
+B.mode plik
+# rm plik
+rm: plik: Operation now in progress
+# echo "dodatkowe dane" >> plik
+# rm plik
+rm: plik: Operation now in progress
+# rm plik
+</pre>
+        <h4>Odpowiedź:</h4>
+        <p>
+          Nie. Zgodnie z treścią zadania, w trybie B po pierwszym
+          <code>rm</code> plik może być odczytywany i edytowany, ale druga próba
+          usunięcia tego pliku powinna już rzeczywiście usunąć go z dysku. Tak
+          samo, gdy pomiędzy pierwszym a drugim <code>rm</code> dysk zostanie
+          odmontowany i zamontowany ponownie (jak w pytaniu zamieszczonym tu
+          wcześniej). Zatem powyższy scenariusz powinien wyglądać tak:
+        </p>
+<pre>
+# ls
+B.mode plik
+# rm ./plik
+rm: ./plik: Operation now in progress
+# echo "dodatkowe dane" >> ./plik
+# rm ./plik
+# ls
+B.mode
+</pre>
+      </div>
+      
+      <div class='question'>
+        <h4>Pytanie:</h4>
+        <p>
+          Jak powinien zadziałać tryb C w takim przypadku?
+        </p>
+<pre>
+# ls
+C.mode   plik     plik.bak
+# rm ./plik
+</pre>
+        <h4>Odpowiedź:</h4>
+        <p>
+          Jeśli zmiana nazwy pliku <code>plik</code> na <code>plik.bak</code>
+          jest możliwa (a w typowym przypadku
+          <code>mv ./plik ./plik.bak</code> zadziała), to usuwanie w trybie C
+          powinno się powieść. Zatem:
+        </p>
+<pre>
+# rm ./plik
+# ls
+C.mode   plik.bak
+</pre>
+        <p>
+          <code>plik.bak</code> jest tu teraz kopią zapasową pliku
+          <code>plik</code>.
+        </p>
+        <h4>Aktualizacja odpowiedzi:</h4>
+        <p>
+          Uznam także argumentację, że polecenie
+          <code>mv ./plik ./plik.bak</code> w takim przypadku robi więcej, niż
+          tylko zmiania nazwę, bo musi także odpowiednio usunąć poprzedni plik.
+          Zatem, wg. takiej interpretacji, tylko zmiana nazwy nie jest możliwa,
+          więc takie usuwanie w trybie C może się nie powieść, kończąc się
+          odpowiednim błędem.
+        </p>
+      </div>
+
+
+      <div class='question'>
+        <h4>Pytanie:</h4>
+        <p>
+          Jeśli <code>prog</code> to skompilowany program o kodzie:
+        </p>
+<pre>
+#include &lt;stdio.h>
+
+int main () {
+   rename("a.txt", "a.txt");
+   return 0;
+}
+</pre>
+        <p>
+          to czy scenariusz:
+        </p>
+<pre>
+# ls
+prog a.txt B.mode
+# rm a.txt
+rm: a.txt: Operation now in progress
+# ./prog
+# rm a.txt
+rm: a.txt: Operation now in progress 
+</pre>
+        <p>
+          jest poprawny? 
+        </p>
+        <h4>Odpowiedź:</h4>
+        <p>
+          W treści zadania użyłem sformułownia <q>operacja zastąpienia pliku
+          samym sobą</q>, ale jako przykład podałem polecenie
+          <code>mv ./plik ./plik</code>, którego działanie w takim przypadku
+          sprowadza się do próby zmiany nazwy pliku. Zatem taki scenariusz też
+          uznam za poprawny.
+        </p>
+      </div>
+
+
+      <div class='question'>
+        <h4>Pytanie:</h4>
+        <p>
+          Czy jeśli w katalogu, z którego chcemy usunąć plik, znajduje się
+          katalog o nazwie
+          <code>A.mode</code>/<code>B.mode</code>/<code>C.mode</code> to należy
+          aktywować odpowiedni tryb? Czy może jedynie zwykłe pliki decydują o
+          trybie, a foldery o takich nazwach należy ignorować? 
+        </p>
+        <h4>Odpowiedź:</h4>
+        <p>
+          Jedynie zwykłe pliki decydują o trybie (<q>W poniższym opisie słowo
+          plik jest używane w znaczeniu zwykłego pliku, nie katalogu</q>).
+          Foldery o takich nazwach nie powinny aktywować trybów.
+        </p>
+      </div>
+
+
+      <div class='question'>
+        <h4>Pytanie:</h4>
+        <p>
+          Jak powinno się zachować usuwanie w trybie B, gdy po pierwszym użyciu
+          <code>rm</code> usuniemy plik <code>B.mode</code> (dezaktywujemy tryb
+          B) i utworzymy plik <code>B.mode</code> ponownie (aktywujemy tryb B)?
+          Czy gdyby pomiędzy dezaktywacją i aktywacją trybu B spróbować usunąć
+          plik w trybie A, coś by to zmieniło?
+        </p>
+        <h4>Odpowiedź:</h4>
+        <p>
+          Z treści zadania nie do końca wynika, co powinno się stać, gdy
+          pomiędzy pierwszym <code>rm</code> (<i>in progress</i>) a drugim
+          <code>rm</code> zostanie zmieniony tryb lub tryb B zostanie
+          dezaktywowany i aktywowany ponownie. Zatem serwer może obsłużyć takie
+          sytuacje w dowolny sposób, przy czym system plików musi pozostać
+          spójny.
+        </p>
+      </div>
+
+
+      <div class='question'>
+        <h4>Pytanie:</h4>
+        <p>
+          Jak powinien działać tryb B, gdy po pierwszym <code>rm</code>
+          (<i>in progress</i>) wykonamy <code>mv ./plik ./plik2</code> lub
+          <code>mv ./plik ./innykatalog/plik</code> i dopiero teraz użyjemy
+          <code>rm</code> ponownie (odpowiednio <code>rm ./plik2</code> lub
+          <code>./innykatalog/plik</code>)?
+        </p>
+        <h4>Odpowiedź:</h4>
+        <p>
+          Jeśli polecenie <code>mv</code> tylko zmieni nazwę usuwanego pliku, to
+          jest to nadal ten sam plik, więc kolejna próba usunięcia go (już pod
+          nową nazwą) powinna być traktowana jako druga próba usunięcia go.
+          Zatem:
+        </p>
+<pre>
+# ls
+B.mode plik
+# rm ./plik 
+rm: ./plik: Operation now in progress
+# mv ./plik ./plik2
+# rm ./plik2 
+# ls
+B.mode
+</pre>
+        <p>
+          Natomiast z treści zadania nie do końca wynika, jak powinien działać
+          tryb B jeśli po pierwszej próbie usunięcia plik zostanie przeniesiony
+          w inne miejsce (w szczególności tam może być aktywny inny lub żaden z
+          trybów). Zatem serwer może obsłużyć taką sytuację w dowolny sposób,
+          przy czym system plików musi pozostać spójny. W rozwiązaniach można
+          zupełnie pominąć przypadki, w których plik po pierwszej próbie
+          usunięcia w trybie B jest przenoszony/kopiowany do innego systemu
+          plików (takie scenariusze nie będą testowane).
+        </p>
+      </div>
+
+      <div class='question'>
+        <h4>Pytanie:</h4>
+        <p>
+          Czy dla sekcji B, ma działać poniższy scenariusz tak jak w załączonym
+          przykładzie?
+        </p>
+<pre>
+# touch aa
+# ls
+B.mode aa
+# rm aa
+rm: aa: Operation now in progress
+# ls
+B.mode aa
+# rm aa
+# ls
+B.mode
+# touch aa
+# ls
+B.mode aa
+# rm aa
+rm: aa: Operation now in progress
+# ls
+B.mode aa
+</pre>
+        <h4>Odpowiedź:</h4>
+        <p>
+          Tak.
+        </p>
+      </div>
+
+      <div class='question'>
+        <h4>Pytanie:</h4>
+        <p>
+          Czy byłoby możliwe, aby dodał Pan jakiś test z mountem do opisu
+          zadania w sekcji odnośnie części B?
+        </p>
+        <h4>Odpowiedź:</h4>
+        <p>
+          Prosty test (zakładając, że został przygotowany dodatkowy dysk zgodnie
+          z pkt 4 ze Wskazówek z treści zdania):
+        </p>
+<pre>
+# mount /dev/c0d1 /root/nowy/
+/dev/c0d1 is mounted on /root/nowy/
+# cd /root/nowy/
+# touch ./B.mode
+# touch ./plik
+# ls
+B.mode plik
+# rm ./plik 
+rm: ./plik: Operation now in progress
+# cd /
+# umount /root/nowy/
+/dev/c0d1 unmounted from /root/nowy/
+# mount /dev/c0d1 /root/nowy/
+/dev/c0d1 is mounted on /root/nowy/
+# cd /root/nowy/
+# rm ./plik 
+# ls
+B.mode
+</pre>
+      </div>
+
+
+      <div class='question'>
+        <h4>Pytanie:</h4>
+        <p>
+          Jeżeli użytkownik działa w trybie C i sam utworzy plik
+          <code>.bak</code>, a następnie wywoła <code>rm</code> na tym pliku to
+          co powinno się wydarzyć?
+        </p>
+        <h4>Odpowiedź:</h4>
+<pre>
+# ls
+C.mode
+# touch ./example.bak
+# rm ./example.bak 
+# ls
+C.mode
+</pre>
+        <p>
+          Każdy plik o nazwie kończącej się <code>.bak</code> traktujemy jak plik
+          zapasowy, niezależnie od jego pochodzenia.
+        </p>
+      </div>
+
+
+      <div class='question'>
+        <h4>Pytanie:</h4>
+        <p>
+          Jak tryby powinny wchodzić w interakcje z otwartymi plikami? Tzn.
+          przypuśćmy, że usuwamy plik, z którym równolegle pracujemy (otwieramy
+          go, piszemy do niego, zamykamy).
+        </p>
+        <h4>Odpowiedź:</h4>
+        <p>
+          Interakcja z otwartymi plikami powinna być analogiczna do
+          odpowiadającej jej interakcji w niezmodyfikowanym serwerze. Tzn. tryb
+          A odpowiada tu sytuacji, gdy w niezmodyfikowanym serwerze
+          <code>rm</code> będzie ,,pustą'' operacją; tryb B odpowiada sytuacji,
+          gdy pierwsze <code>rm</code> jest ,,pustą'' operacją, a drugie
+          <code>rm</code> ,,prawdziwym'' usuwaniem; w trybie C <code>rm</code>
+          odpowiada użyciu <code>mv</code>.
+        </p>
+      </div>
+
+
+    </div>
+  </body>
+</html>
