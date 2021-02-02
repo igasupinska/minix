@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+  <title>Systemy operacyjne, zadanie 4</title>
+  <meta http-equiv="content-type" content="text/html; charset=UTF-8">
+  <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap.min.css">
+<body>
+<div class="container">
+
+<h2>Zadanie 4</h2>
+
+<p>Celem zadania jest zaimplementowanie eksperymentalnego algorytmu szeregowania w systemie MINIX.
+  Dotyczy on wyłącznie procesów użytkownika. Szeregowanie procesów systemowych pozostaje bez zmian.</p>
+
+<p>Procesy użytkownika umieszczane są w trzech kolejkach związanych z priorytetami I, II i III.
+  Początkowo każdy proces użytkownika otrzymuje priorytet I. Kiedy proces po raz 5-ty
+  zużyje swój kwant czasu, zmienia priorytet na II.
+  Gdy proces, pracując z priorytetem II, po raz 10-ty zużyje swój kwant czasu, zmienia priorytet na III.
+  W celu uniknięcia zagłodzenia, procesy działające z priorytetem III, kiedy zużyją kolejne 20 kwantów
+  czasu, zmieniają priorytet na I.
+</p>
+
+<p> System wybiera do wykonania po jednym razie wszystkie procesy o priorytecie I, a następnie
+  jeden proces o priorytecie II, po czym znowu wszystkie procesy o priorytecie I. Jeśli wszystkie
+  procesy z kolejki II zostały wybrane do wykonania, system wybiera jeden proces z kolejki III.</p>
+
+<h3> Przykład </h3>
+<pre>
+I   p1 p2 p3
+II  p4 p5
+III p6 p7
+</pre>
+
+<p>Kolejność wykonywania procesów powinna być następująca: </p>
+
+<pre>
+p1 p2 p3 p4 p1 p2 p3 p5 p6 p1 p2 p3 p4 p1 p2 p3 p5 p7 p1 p2 p3 p4 …
+</pre>
+
+<h3>Implementacja</h3>
+
+<p>Implementacja powinna zawierać:</p>
+
+<ul>
+  <li>konieczne zmiany w mikrojądrze oraz w serwerach <code>sched</code>
+    i <code>pm</code>, przy czym za nagłówkiem każdej funkcji,
+    która została dodana lub zmieniona, w tym samym wierszu, należy dodać komentarz 
+    <code>/* eas_2019 */</code>.</li>
+</ul>
+
+<p>Dopuszczamy zmiany w katalogach:</p>
+
+<ul>
+  <li><code>/usr/src/minix/servers/sched</code>,</li>
+  <li><code>/usr/src/minix/servers/pm</code>,</li>
+  <li><code>/usr/src/minix/kernel</code>,</li>
+</ul>
+
+<p>oraz w plikach nagłówkowych:</p>
+
+<ul>
+  <li><code>/usr/src/minix/include/minix/com.h</code>, który będzie kopiowany do <code>/usr/include/minix/com.h</code>,</li>
+  <li><code>/usr/src/minix/include/minix/config.h</code>, który będzie kopiowany do <code>/usr/include/minix/config.h</code>,</li>
+  <li><code>/usr/src/minix/include/minix/syslib.h</code>, który będzie kopiowany do <code>/usr/include/minix/syslib.h</code>.</li>
+</ul>
+  
+<p>Skrypt <code>kompiluj.sh</code>, który będzie używany przy testowaniu, znajduje się w katalogu PUBLIC.</p>
+   
+</ul>
+
+<h3>Wskazówki</h3>
+
+<ul>
+  <li>Do zmiany metody szeregowania można dodać nową funkcję systemową
+      mikrojądra. Warto w tym przypadku wzorować się na przykład na funkcji
+      <code>do_schedule()</code>.</li>
+
+  <li>Przypominamy, że wstawianie do kolejki procesów gotowych wykonuje mikrojądro
+    (<code>/usr/src/minix/kernel/proc.c</code>). Natomiast o przydzielaniu kwantu
+    i priorytetu decyduje serwer <code>sched</code>.</li>
+
+  <li>Nie trzeba pisać nowego serwera szeregującego.
+    Można zmodyfikować domyślny serwer <code>sched</code>.</li>
+
+  <li>Aby nowy algorytm szeregowania zaczął działać, należy wykonać
+      <code>make; make install</code> w katalogu
+      <code>/usr/src/minix/servers/sched</code> oraz w innych katalogach
+      zawierających zmiany. Następnie trzeba zbudować nowy obraz jądra, czyli
+      wykonać <code>make do-hdboot</code> w katalogu
+      <code>/usr/src/releasetools</code> i zrestartować system.
+      Gdyby obraz nie chciał się załadować lub wystąpił poważny błąd
+      (<code>kernel panic</code>), należy przy starcie systemu wybrać opcję 6,
+      która załaduje oryginalne jądro.</li>
+</ul>
+
+<h3>Rozwiązanie</h3>
+
+<p>Poniżej przyjmujemy, że ab123456 oznacza identyfikator studenta
+rozwiązującego zadanie. Należy przygotować łatkę (ang. <em>patch</em>) ze
+  zmianami w sposób opisany w treści zadania 3.
+
+<p>Prosimy pamiętać o dodaniu odpowiednich komentarzy, ponieważ lista
+  zmienionych funkcji uzyskana za pomocą polecenia
+  <code>grep -r eas_2019 /usr/src</code> będzie miała wpływ na ocenę zadania.
+  Wystarczy, że każda funkcja pojawi się na liście tylko raz, więc nie potrzeba
+  umieszczać komentarzy w plikach nagłówkowych.</p>
+
+<p>W repozytorium, w katalogu <code>studenci/ab123456/zadanie4</code> należy
+umieścić:</p>
+
+<ul>
+  <li>patch ze zmianami,</li>
+  <li>plik <code>README</code> (opcjonalnie).</li>
+</ul>
+
+<p>Ostateczny termin umieszczenia rozwiązania w repozytorium to
+<strong>27 maja 2019, godz. 20.00</strong>.</p>
+
+<p>Uwaga: nie przyznajemy punktów za rozwiązanie, w którym łatka nie nakłada się
+poprawnie, które nie kompiluje się lub powoduje <code>kernel panic</code>
+podczas uruchamiania.</p>
+
+<h3>Pytania</h3>
+<p> Pytania do zadania należy kierować na adres A.Janowska@mimuw.edu.pl,
+  a odpowiedzi na często zadawane pytania będą się pojawiać w tym pliku.
+</p>
+
+</div>
+</body>
+</html>
